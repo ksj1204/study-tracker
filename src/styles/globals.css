@@ -1,0 +1,187 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 기본 스타일 */
+:root {
+  --rainbow-red: #FF6B6B;
+  --rainbow-orange: #FFA94D;
+  --rainbow-yellow: #FFD93D;
+  --rainbow-green: #6BCB77;
+  --rainbow-blue: #4D96FF;
+  --rainbow-indigo: #6C5CE7;
+  --rainbow-violet: #A66CFF;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  @apply bg-gray-50 text-gray-900 antialiased;
+  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* 캐릭터 관련 애니메이션 */
+@keyframes bounce-gentle {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes sparkle {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.2); }
+}
+
+@keyframes wiggle {
+  0%, 100% { transform: rotate(-3deg); }
+  50% { transform: rotate(3deg); }
+}
+
+.animate-bounce-gentle {
+  animation: bounce-gentle 2s ease-in-out infinite;
+}
+
+.animate-sparkle {
+  animation: sparkle 1.5s ease-in-out infinite;
+}
+
+.animate-wiggle {
+  animation: wiggle 0.5s ease-in-out infinite;
+}
+
+/* 캐릭터 색상 필터 */
+.character-red { filter: hue-rotate(0deg) saturate(1.2); }
+.character-orange { filter: hue-rotate(30deg) saturate(1.2); }
+.character-yellow { filter: hue-rotate(60deg) saturate(1.2); }
+.character-green { filter: hue-rotate(120deg) saturate(1.2); }
+.character-blue { filter: hue-rotate(200deg) saturate(1.2); }
+.character-indigo { filter: hue-rotate(240deg) saturate(1.2); }
+.character-violet { filter: hue-rotate(280deg) saturate(1.2); }
+
+/* 무지개 그라데이션 */
+.rainbow-gradient {
+  background: linear-gradient(
+    90deg,
+    var(--rainbow-red),
+    var(--rainbow-orange),
+    var(--rainbow-yellow),
+    var(--rainbow-green),
+    var(--rainbow-blue),
+    var(--rainbow-indigo),
+    var(--rainbow-violet)
+  );
+}
+
+/* 카드 스타일 */
+.card {
+  @apply bg-white rounded-2xl shadow-lg p-6;
+}
+
+.card-hover {
+  @apply transition-all duration-300 hover:shadow-xl hover:-translate-y-1;
+}
+
+/* 버튼 스타일 */
+.btn {
+  @apply px-6 py-3 rounded-xl font-semibold transition-all duration-200;
+  @apply focus:outline-none focus:ring-2 focus:ring-offset-2;
+}
+
+.btn-primary {
+  @apply bg-chick-400 text-white hover:bg-chick-500;
+  @apply focus:ring-chick-400;
+}
+
+.btn-secondary {
+  @apply bg-gray-100 text-gray-700 hover:bg-gray-200;
+  @apply focus:ring-gray-400;
+}
+
+.btn-success {
+  @apply bg-rainbow-green text-white hover:opacity-90;
+  @apply focus:ring-green-400;
+}
+
+.btn-danger {
+  @apply bg-rainbow-red text-white hover:opacity-90;
+  @apply focus:ring-red-400;
+}
+
+/* 입력 필드 */
+.input {
+  @apply w-full px-4 py-3 rounded-xl border border-gray-200;
+  @apply focus:outline-none focus:ring-2 focus:ring-chick-400 focus:border-transparent;
+  @apply transition-all duration-200;
+}
+
+/* 출석 상태 아이콘 */
+.status-present {
+  @apply text-rainbow-green;
+}
+
+.status-absent {
+  @apply text-rainbow-red;
+}
+
+.status-pending {
+  @apply text-rainbow-blue;
+}
+
+.status-rest {
+  @apply text-gray-400;
+}
+
+/* 요일 캘린더 */
+.day-cell {
+  @apply w-12 h-12 flex items-center justify-center rounded-xl;
+  @apply font-medium text-sm transition-all duration-200;
+}
+
+.day-today {
+  @apply ring-2 ring-chick-400 ring-offset-2;
+}
+
+/* 프로그레스 바 */
+.progress-bar {
+  @apply h-3 bg-gray-200 rounded-full overflow-hidden;
+}
+
+.progress-fill {
+  @apply h-full transition-all duration-500 ease-out;
+}
+
+/* 토스트 알림 */
+.toast {
+  @apply fixed bottom-4 right-4 px-6 py-4 rounded-xl shadow-lg;
+  @apply transform transition-all duration-300;
+}
+
+.toast-success {
+  @apply bg-rainbow-green text-white;
+}
+
+.toast-error {
+  @apply bg-rainbow-red text-white;
+}
+
+.toast-info {
+  @apply bg-rainbow-blue text-white;
+}
+
+/* 로딩 스피너 */
+.spinner {
+  @apply animate-spin rounded-full border-4 border-gray-200;
+  border-top-color: theme('colors.chick.400');
+}
+
+/* 반응형 */
+@media (max-width: 640px) {
+  .card {
+    @apply rounded-xl p-4;
+  }
+  
+  .day-cell {
+    @apply w-10 h-10 text-xs;
+  }
+}
