@@ -395,15 +395,49 @@ export default function StudentDashboard() {
         if (error) throw error;
       }
       
-      // 캐릭터 업데이트
+      // 캐릭터 업데이트 - Android에서는 타임아웃으로 스킵 가능하게
       console.log('[Dashboard] 캐릭터 업데이트 시작...');
-      await handleAttendance(userId);
-      console.log('[Dashboard] 캐릭터 업데이트 완료');
+      try {
+        if (isAndroidDevice) {
+          // Android: 5초 타임아웃, 실패해도 출석은 성공
+          const charPromise = handleAttendance(userId);
+          const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('캐릭터 업데이트 타임아웃')), 5000)
+          );
+          await Promise.race([charPromise, timeoutPromise]);
+        } else {
+          await handleAttendance(userId);
+        }
+        console.log('[Dashboard] 캐릭터 업데이트 완료');
+      } catch (charError) {
+        console.warn('[Dashboard] 캐릭터 업데이트 스킵:', charError);
+        // 캐릭터 업데이트 실패해도 출석은 성공 처리
+      }
       
-      // 세션 다시 로드
+      // 세션 다시 로드 - Android에서는 타임아웃으로 스킵 가능하게
       console.log('[Dashboard] 세션 로드 시작...');
-      await loadWeekSessions();
-      console.log('[Dashboard] 세션 로드 완료');
+      try {
+        if (isAndroidDevice) {
+          const loadPromise = loadWeekSessions();
+          const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('세션 로드 타임아웃')), 5000)
+          );
+          await Promise.race([loadPromise, timeoutPromise]);
+        } else {
+          await loadWeekSessions();
+        }
+        console.log('[Dashboard] 세션 로드 완료');
+      } catch (loadError) {
+        console.warn('[Dashboard] 세션 로드 스킵:', loadError);
+      }
+      
+      // Android에서는 성공 후 페이지 새로고침으로 데이터 갱신
+      if (isAndroidDevice) {
+        console.log('[Dashboard] Android - 출석 성공! 페이지 새로고침...');
+        alert('✅ 출석이 완료되었습니다!');
+        window.location.reload();
+        return;
+      }
       
     } catch (error) {
       console.error('[Dashboard] 출석 처리 실패:', error);
