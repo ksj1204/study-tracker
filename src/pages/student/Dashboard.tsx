@@ -335,15 +335,22 @@ export default function StudentDashboard() {
 
   // 출석 처리
   async function onAttendance(photoUrl: string, startTime: string, endTime: string) {
-    if (!userId) return;
+    console.log('[Dashboard] onAttendance 시작:', { photoUrl, startTime, endTime, userId });
+    
+    if (!userId) {
+      console.error('[Dashboard] userId 없음!');
+      return;
+    }
     
     setIsAttending(true);
     
     try {
       const todayStr = getTodayString();
+      console.log('[Dashboard] 오늘 날짜:', todayStr);
       
       // 세션 생성/업데이트
-      const { error } = await supabase
+      console.log('[Dashboard] study_sessions upsert 시작...');
+      const { data, error } = await supabase
         .from('study_sessions')
         .upsert({
           user_id: userId,
@@ -354,21 +361,29 @@ export default function StudentDashboard() {
           end_time: endTime,
           base_amount: 500,
           extra_amount: 0,
-        }, { onConflict: 'user_id,study_date' });
+        }, { onConflict: 'user_id,study_date' })
+        .select();
+      
+      console.log('[Dashboard] upsert 결과:', { data, error });
       
       if (error) throw error;
       
       // 캐릭터 업데이트
+      console.log('[Dashboard] 캐릭터 업데이트 시작...');
       await handleAttendance(userId);
+      console.log('[Dashboard] 캐릭터 업데이트 완료');
       
       // 세션 다시 로드
+      console.log('[Dashboard] 세션 로드 시작...');
       await loadWeekSessions();
+      console.log('[Dashboard] 세션 로드 완료');
       
     } catch (error) {
-      console.error('출석 처리 실패:', error);
+      console.error('[Dashboard] 출석 처리 실패:', error);
       alert('출석 처리에 실패했습니다. 다시 시도해주세요.');
     } finally {
       setIsAttending(false);
+      console.log('[Dashboard] onAttendance 완료');
     }
   }
 
