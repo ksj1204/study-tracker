@@ -348,9 +348,10 @@ export default function StudentDashboard() {
       const todayStr = getTodayString();
       console.log('[Dashboard] 오늘 날짜:', todayStr);
       
-      // 세션 생성/업데이트
+      // 세션 생성/업데이트 - 타임아웃 적용
       console.log('[Dashboard] study_sessions upsert 시작...');
-      const { data, error } = await supabase
+      
+      const upsertPromise = supabase
         .from('study_sessions')
         .upsert({
           user_id: userId,
@@ -363,6 +364,13 @@ export default function StudentDashboard() {
           extra_amount: 0,
         }, { onConflict: 'user_id,study_date' })
         .select();
+      
+      // 15초 타임아웃
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('DB 저장 시간 초과 (15초)')), 15000)
+      );
+      
+      const { data, error } = await Promise.race([upsertPromise, timeoutPromise]) as any;
       
       console.log('[Dashboard] upsert 결과:', { data, error });
       
