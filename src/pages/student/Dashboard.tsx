@@ -348,33 +348,52 @@ export default function StudentDashboard() {
       const todayStr = getTodayString();
       console.log('[Dashboard] 오늘 날짜:', todayStr);
       
-      // 세션 생성/업데이트 - 타임아웃 적용
-      console.log('[Dashboard] study_sessions upsert 시작...');
+      // Android인지 확인
+      const isAndroidDevice = /Android/i.test(navigator.userAgent);
+      console.log('[Dashboard] Android 여부:', isAndroidDevice);
       
-      const upsertPromise = supabase
-        .from('study_sessions')
-        .upsert({
-          user_id: userId,
-          study_date: todayStr,
-          is_present: true,
-          study_photo_url: photoUrl,
-          start_time: startTime,
-          end_time: endTime,
-          base_amount: 500,
-          extra_amount: 0,
-        }, { onConflict: 'user_id,study_date' })
-        .select();
-      
-      // 15초 타임아웃
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('DB 저장 시간 초과 (15초)')), 15000)
-      );
-      
-      const { data, error } = await Promise.race([upsertPromise, timeoutPromise]) as any;
-      
-      console.log('[Dashboard] upsert 결과:', { data, error });
-      
-      if (error) throw error;
+      if (isAndroidDevice) {
+        // Android: Netlify Function으로 서버 중계
+        console.log('[Dashboard] Android - Netlify Function으로 출석 저장...');
+        
+        const response = await fetch('/.netlify/functions/save-attendance', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId,
+            studyDate: todayStr,
+            photoUrl,
+            startTime,
+            endTime,
+          }),
+        });
+        
+        const result = await response.json();
+        console.log('[Dashboard] Netlify Function 결과:', result);
+        
+        if (!response.ok) {
+          throw new Error(result.error || '출석 저장 실패');
+        }
+      } else {
+        // PC/iOS: 직접 Supabase 호출
+        console.log('[Dashboard] PC/iOS - 직접 Supabase 호출...');
+        const { data, error } = await supabase
+          .from('study_sessions')
+          .upsert({
+            user_id: userId,
+            study_date: todayStr,
+            is_present: true,
+            study_photo_url: photoUrl,
+            start_time: startTime,
+            end_time: endTime,
+            base_amount: 500,
+            extra_amount: 0,
+          }, { onConflict: 'user_id,study_date' })
+          .select();
+        
+        console.log('[Dashboard] upsert 결과:', { data, error });
+        if (error) throw error;
+      }
       
       // 캐릭터 업데이트
       console.log('[Dashboard] 캐릭터 업데이트 시작...');
