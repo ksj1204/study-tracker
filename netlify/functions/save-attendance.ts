@@ -6,20 +6,28 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-// 캐릭터 성장 로직 (characterUtils.ts에서 복사)
-const STAGES = ['egg', 'baby', 'teenager', 'adult', 'golden'] as const;
+// 캐릭터 성장 로직 (characterUtils.ts 원본 로직)
+const STAGES = ['egg', 'hatching', 'baby', 'adult', 'golden', 'legend'] as const;
 const COLORS = ['red', 'orange', 'yellow', 'green', 'blue', 'indigo', 'violet'] as const;
 
-function getNextStage(stage: string): string {
-  const idx = STAGES.indexOf(stage as any);
-  if (idx === -1 || idx >= STAGES.length - 1) return stage;
-  return STAGES[idx + 1];
-}
-
-function getNextColor(color: string): string {
-  const idx = COLORS.indexOf(color as any);
-  if (idx === -1 || idx >= COLORS.length - 1) return color;
-  return COLORS[idx + 1];
+/**
+ * 출석 시 캐릭터 업데이트
+ * - 색상 1단계 상승
+ * - 보라(7일차)에서 출석하면 다음 캐릭터 단계로 승급 + 빨강 리셋
+ */
+function onAttendance(currentStage: string, currentColor: string) {
+  const colorIndex = COLORS.indexOf(currentColor as any);
+  const stageIndex = STAGES.indexOf(currentStage as any);
+  
+  if (colorIndex === 6) {  // 보라색(마지막)에서 출석
+    // 다음 캐릭터 단계로 승급 + 빨강으로 리셋
+    const newStage = stageIndex < 5 ? STAGES[stageIndex + 1] : 'legend';
+    return { stage: newStage, color: 'red' };
+  } else {
+    // 색상만 1단계 상승
+    const newColor = colorIndex < 6 ? COLORS[colorIndex + 1] : 'violet';
+    return { stage: currentStage, color: newColor };
+  }
 }
 
 function increaseMood(current: number, consecutiveDays: number): number {
@@ -102,33 +110,21 @@ export const handler: Handler = async (event) => {
       if (charError) {
         console.warn('[save-attendance] 캐릭터 조회 실패:', charError);
       } else if (charState) {
-        // 성장 계산
+        // 원래 로직: 출석할 때마다 색상 1단계 상승, 보라에서 출석하면 승급
+        const result = onAttendance(charState.current_stage, charState.current_color);
         const newConsecutive = charState.consecutive_days + 1;
-        let newStage = charState.current_stage;
-        let newColor = charState.current_color;
-
-        // 7일 연속 출석마다 성장
-        if (newConsecutive % 7 === 0 && newStage !== 'golden') {
-          if (newStage === 'adult') {
-            // adult에서 golden으로
-            newStage = 'golden';
-          } else {
-            newStage = getNextStage(newStage);
-          }
-        }
-
-        // 21일 연속 출석마다 색상 변경
-        if (newConsecutive % 21 === 0 && newColor !== 'violet') {
-          newColor = getNextColor(newColor);
-        }
-
         const newMood = increaseMood(charState.mood_level, newConsecutive);
+
+        console.log('[save-attendance] 캐릭터 성장:', {
+          before: { stage: charState.current_stage, color: charState.current_color },
+          after: { stage: result.stage, color: result.color }
+        });
 
         const { error: updateError } = await supabase
           .from('character_state')
           .update({
-            current_stage: newStage,
-            current_color: newColor,
+            current_stage: result.stage,
+            current_color: result.color,
             consecutive_days: newConsecutive,
             consecutive_absence: 0,
             total_days: charState.total_days + 1,
@@ -141,7 +137,11 @@ export const handler: Handler = async (event) => {
         if (updateError) {
           console.warn('[save-attendance] 캐릭터 업데이트 실패:', updateError);
         } else {
-          console.log('[save-attendance] 캐릭터 업데이트 성공:', { newStage, newColor, newConsecutive });
+          console.log('[save-attendance] 캐릭터 업데이트 성공:', { 
+            stage: result.stage, 
+            color: result.color, 
+            consecutiveDays: newConsecutive 
+          });
         }
       }
     } catch (charErr) {
