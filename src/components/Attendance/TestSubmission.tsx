@@ -85,6 +85,7 @@ export default function TestSubmission({ userId, onSubmitted }: TestSubmissionPr
   const [processingStatus, setProcessingStatus] = useState<ProcessingStatus>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<string>('');  // 업로드 진행 상황
   
   // 사진 뷰어 상태
   const [viewingPhotoIndex, setViewingPhotoIndex] = useState<number | null>(null);
@@ -232,39 +233,65 @@ export default function TestSubmission({ userId, onSubmitted }: TestSubmissionPr
 
     setIsUploading(true);
     setErrorMessage(null);
+    setUploadProgress('');
 
     try {
       const todayStr = getTodayString();
       const uploadedUrls: string[] = [];
+      const isAndroidDevice = isAndroid();
 
-      // 1) 이미지 업로드
+      // 1) 이미지 업로드 - Android 최적화
       if (selectedImages.length > 0) {
-        setProcessingStatus('uploading');
+        console.log(`[TestSubmission] 총 ${selectedImages.length}장 업로드 시작 (Android: ${isAndroidDevice})`);
         
         for (let i = 0; i < selectedImages.length; i++) {
           const img = selectedImages[i];
-          console.log(`[TestSubmission] 이미지 ${i + 1}/${selectedImages.length} 업로드 중...`);
+          const progressText = `${i + 1}/${selectedImages.length}장`;
+          setUploadProgress(progressText);
+          setProcessingStatus(i === 0 ? 'resizing' : 'uploading');
+          console.log(`[TestSubmission] 이미지 ${i + 1}/${selectedImages.length} 처리 시작 (${formatFileSize(img.file.size)})`);
           
-          // 이미지 처리 - Android도 2MB 이상이면 압축
+          // 이미지 처리 - Android에서는 더 공격적으로 압축
           let fileToUpload = img.file;
           try {
-            const shouldCompress = !isAndroid() || img.file.size > 1 * 1024 * 1024;
+            // Android: 500KB 이상이면 압축, PC: 1MB 이상이면 압축
+            const compressThreshold = isAndroidDevice ? 500 * 1024 : 1 * 1024 * 1024;
+            const shouldCompress = img.file.size > compressThreshold;
+            
             if (shouldCompress) {
-              console.log(`[TestSubmission] 이미지 ${i + 1} 압축 중...`);
+              setUploadProgress(`${progressText} 압축 중...`);
+              console.log(`[TestSubmission] 이미지 ${i + 1} 압축 중... (${formatFileSize(img.file.size)})`);
               fileToUpload = await resizeAndCompressImage(img.file, {
-                maxSize: 1200,
-                quality: 0.6,
-                timeout: 15000
+                maxSize: isAndroidDevice ? 1000 : 1200,  // Android: 더 작게
+                quality: isAndroidDevice ? 0.5 : 0.6,    // Android: 더 낮은 품질
+                timeout: 10000,  // 타임아웃 줄임
+                skipIfSmall: true  // 이미 작으면 스킵
               });
-              console.log(`[TestSubmission] 압축 완료: ${fileToUpload.size} bytes`);
+              console.log(`[TestSubmission] 압축 완료: ${formatFileSize(fileToUpload.size)}`);
+            } else {
+              console.log(`[TestSubmission] 이미지 ${i + 1} 압축 스킵 (이미 작음)`);
             }
-          } catch {
-            console.log('[TestSubmission] 이미지 처리 스킵');
+          } catch (compressError) {
+            console.log('[TestSubmission] 이미지 처리 스킵, 원본 사용:', compressError);
+            // 압축 실패해도 원본으로 진행
           }
           
+          // 업로드
+          setUploadProgress(`${progressText} 업로드 중...`);
+          setProcessingStatus('uploading');
+          console.log(`[TestSubmission] 이미지 ${i + 1} 업로드 시작...`);
           const url = await uploadTestImage(userId, fileToUpload);
           uploadedUrls.push(url);
+          console.log(`[TestSubmission] 이미지 ${i + 1} 업로드 완료!`);
+          
+          // 메모리 정리를 위한 짧은 대기 (Android)
+          if (isAndroidDevice && i < selectedImages.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
         }
+        
+        setUploadProgress('저장 중...');
+        console.log(`[TestSubmission] 모든 이미지 업로드 완료: ${uploadedUrls.length}장`);
       }
 
       // 2) 시험 결과 저장 (승인 대기 상태)
@@ -291,6 +318,7 @@ export default function TestSubmission({ userId, onSubmitted }: TestSubmissionPr
       selectedImages.forEach(img => revokePreviewUrl(img.previewUrl));
       setSelectedImages([]);
       setManualScore('');
+      setUploadProgress('');
       
       onSubmitted();
 
@@ -305,6 +333,7 @@ export default function TestSubmission({ userId, onSubmitted }: TestSubmissionPr
       }
     } finally {
       setIsUploading(false);
+      setUploadProgress('');
       setTimeout(() => setProcessingStatus('idle'), 2000);
     }
   };
@@ -463,7 +492,7 @@ export default function TestSubmission({ userId, onSubmitted }: TestSubmissionPr
         {isBusy ? (
           <>
             <div className="spinner w-5 h-5" />
-            <span>{getStatusMessage(processingStatus) || '처리 중...'}</span>
+            <span>{uploadProgress || getStatusMessage(processingStatus) || '처리 중...'}</span>
           </>
         ) : (
           <span>📤 시험 결과 제출 {selectedImages.length > 0 && `(${selectedImages.length}장)`}</span>
